@@ -1,108 +1,117 @@
 import os
-import json
 import joblib
-import numpy as np
-
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
-from sklearn import metrics
-
-
-# -----------------------------
-# Load Data
-# -----------------------------
-def load_data():
-    iris = load_iris()
-    df = pd.DataFrame(iris.data, columns=iris.feature_names)
-    df["species"] = iris.target
-    return df
-
+from sklearn.metrics import (
+    accuracy_score,
+    confusion_matrix,
+    classification_report
+)
 
 # -----------------------------
-# Split Data
+# Create outputs directory
 # -----------------------------
-def split_data(df):
-    X = df.drop("species", axis=1)
-    y = df["species"]
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUTPUT_DIR = os.path.join(BASE_DIR, "outputs")
 
-    return train_test_split(X, y, test_size=0.2, random_state=42)
-
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # -----------------------------
-# Train Models
+# Load dataset
 # -----------------------------
-def train_models(X_train, y_train):
-    models = {
-        "decision_tree": DecisionTreeClassifier(),
-        "logistic_regression": LogisticRegression(max_iter=200),
-        "svm": SVC(probability=True)
-    }
+iris = load_iris()
 
-    for model in models.values():
-        model.fit(X_train, y_train)
+df = pd.DataFrame(
+    iris.data,
+    columns=iris.feature_names
+)
 
-    return models
-
+df["species"] = iris.target
 
 # -----------------------------
-# Evaluate Models
+# Features and target
 # -----------------------------
-def evaluate(models, X_test, y_test):
-    results = {}
-
-    for name, model in models.items():
-        y_pred = model.predict(X_test)
-
-        results[name] = {
-            "accuracy": metrics.accuracy_score(y_test, y_pred),
-            "precision": metrics.precision_score(y_test, y_pred, average="weighted"),
-            "recall": metrics.recall_score(y_test, y_pred, average="weighted"),
-            "f1_score": metrics.f1_score(y_test, y_pred, average="weighted"),
-        }
-
-    return results
-
+X = df.drop("species", axis=1)
+y = df["species"]
 
 # -----------------------------
-# Save Outputs (FIXED PATH)
+# Train/Test split
 # -----------------------------
-def save_outputs(models, results):
-    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    OUTPUT_DIR = os.path.join(BASE_DIR, "outputs")
-
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-    # Save model
-    joblib.dump(models["decision_tree"], os.path.join(OUTPUT_DIR, "model.pkl"))
-
-    # Save metrics
-    with open(os.path.join(OUTPUT_DIR, "metrics.json"), "w") as f:
-        json.dump(results, f, indent=4)
-
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42
+)
 
 # -----------------------------
-# Main
+# Train model
 # -----------------------------
-def main():
-    print("🚀 Training started...")
+model = DecisionTreeClassifier()
 
-    df = load_data()
-    X_train, X_test, y_train, y_test = split_data(df)
+model.fit(X_train, y_train)
 
-    models = train_models(X_train, y_train)
-    results = evaluate(models, X_test, y_test)
+# -----------------------------
+# Predictions
+# -----------------------------
+y_pred = model.predict(X_test)
 
-    save_outputs(models, results)
+# -----------------------------
+# Accuracy
+# -----------------------------
+accuracy = accuracy_score(y_test, y_pred)
 
-    print("✅ Training completed")
-    print("📊 Results:", results)
+print(f"Accuracy: {accuracy:.2f}")
 
+# -----------------------------
+# Classification report
+# -----------------------------
+print("\nClassification Report:\n")
+print(classification_report(y_test, y_pred))
 
-# IMPORTANT (this runs the script)
-if __name__ == "__main__":
-    main()
+# -----------------------------
+# Confusion Matrix
+# -----------------------------
+cm = confusion_matrix(y_test, y_pred)
+
+plt.figure(figsize=(6, 4))
+
+sns.heatmap(
+    cm,
+    annot=True,
+    fmt="d",
+    cmap="Blues",
+    xticklabels=iris.target_names,
+    yticklabels=iris.target_names
+)
+
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.title("Confusion Matrix")
+
+# Save confusion matrix image
+confusion_matrix_path = os.path.join(
+    OUTPUT_DIR,
+    "confusion_matrix.png"
+)
+
+plt.savefig(confusion_matrix_path)
+
+print(f"\nConfusion matrix saved to: {confusion_matrix_path}")
+
+# -----------------------------
+# Save trained model
+# -----------------------------
+model_path = os.path.join(
+    OUTPUT_DIR,
+    "model.joblib"
+)
+
+joblib.dump(model, model_path)
+
+print(f"Model saved to: {model_path}")
